@@ -180,7 +180,7 @@ __device__ double get_Legendre(double &mu, int &l) {
     if (l == 0) {
         return 1.0;
     } else {
-        return 2.5*(3.0*mu*mu - 1.0);
+        return 5.0*(3.0*mu*mu - 1.0);
     }
 }
 

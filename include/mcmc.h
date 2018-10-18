@@ -123,7 +123,7 @@ void bkmcmc::write_theta_screen() {
         std::cout << bkmcmc::theta_0[i];
     }
     std::cout.width(15);
-    std::cout << pow(bkmcmc::theta_0[3]*bkmcmc::theta_0[4]*bkmcmc::theta_0[4],1.0/3.0);
+    std::cout << pow(bkmcmc::theta_0[4]*bkmcmc::theta_0[5]*bkmcmc::theta_0[5],1.0/3.0);
     std::cout.width(15);
     std::cout << bkmcmc::chisq_0;
     std::cout.flush();
