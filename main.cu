@@ -11,29 +11,54 @@
 #include <vector>
 #include <cuda.h>
 #include <vector_types.h>
+#include <gsl/gsl_spline.h>
 #include "include/gpuerrchk.h"
 #include "include/mcmc.h"
 #include "include/harppi.h"
 #include "include/make_spline.h"
-#include "include/pk_slope.h"
+#include "include/dewiggle.h"
+
+double get_k_nl(std::string P_lin_file);
 
 int main(int argc, char *argv[]) {
     // Use HARPPI hidden in an object file to parse parameters
     parameters p(argv[1]);
     
     // Generate cubic splines of the input BAO and NW power spectra
-    std::vector<float4> Pk = make_spline(p.gets("input_power"));
+    std::vector<double4> Pk_spline = make_spline(p.gets("input_power"));
+    std::vector<double> k;
+    std::vector<double> n;
+    get_dewiggled_slope(p.gets("in_pk_lin_file"), k, n);
+    std::vector<double4> nk_spline = make_uniform_spline(k, n, 877, p.getd("k_min"), p.getd("k_max"));
+    
+    std::vector<double> Q_3;
+    Q_3.reserve(n.size());
+    for (size_t i = 0; i < n.size(); ++i) {
+        Q_3.push_back((4.0 - pow(2.0, n[i]))/(1.0 + pow(2.0, n[i] + 1.0)));
+    }
+    
+    std::vector<double4> Q3_spline = make_uniform_spline(k, Q_3, 877, p.getd("k_min"), p.getd("k_max"));
+    std::cout << "Pk_spline.size() = " << Pk_spline.size() << std::endl;
+    std::cout << "nk_spline.size() = " << nk_spline.size() << std::endl;
+    std::cout << "Q3_spline.size() = " << Q3_spline.size() << std::endl;    
     
     // Copy the splines to the allocated GPU memory
-    gpuErrchk(cudaMemcpyToSymbol(d_Pk, Pk.data(), 128*sizeof(float4)));
+    gpuErrchk(cudaMemcpyToSymbol(d_Pk, Pk_spline.data(), 128*sizeof(double4)));
+    gpuErrchk(cudaMemcpyToSymbol(d_n, nk_spline.data(), 877*sizeof(double4)));
+    gpuErrchk(cudaMemcpyToSymbol(d_Q3, Q3_spline.data(), 877*sizeof(double4)));
     
     // Copy Gaussian Quadrature weights and evaluation point to GPU constant memory
-    gpuErrchk(cudaMemcpyToSymbol(d_wi, &w_i[0], 32*sizeof(float)));
-    gpuErrchk(cudaMemcpyToSymbol(d_xi, &x_i[0], 32*sizeof(float)));
+    gpuErrchk(cudaMemcpyToSymbol(d_w, &w_i[0], 32*sizeof(double)));
+    gpuErrchk(cudaMemcpyToSymbol(d_x, &x_i[0], 32*sizeof(double)));
+    gpuErrchk(cudaMemcpyToSymbol(d_aF, a_F, 9*sizeof(double)));
+    gpuErrchk(cudaMemcpyToSymbol(d_aG, a_G, 9*sizeof(double)));
+    
+    double k_nl = get_k_nl(p.gets("in_pk_lin_file"));
+    gpuErrchk(cudaMemcpyToSymbol(d_knl, &k_nl, sizeof(double)));
     
     // Declare a pointer for the integration workspace and allocate memory on the GPU
     double *d_Bk;
-    float4 *d_ks;
+    double4 *d_ks;
     
     gpuErrchk(cudaMalloc((void **)&d_Bk, p.geti("num_data")*sizeof(double)));
     gpuErrchk(cudaMalloc((void **)&d_ks, p.geti("num_data")*sizeof(float4)));
@@ -69,4 +94,33 @@ int main(int argc, char *argv[]) {
     gpuErrchk(cudaFree(d_ks));
     
     return 0;
+}
+
+double get_k_nl(std::string P_lin_file) {
+    double k_nl;
+    std::vector<double> prod;
+    std::vector<double> k;
+    std::ifstream fin(P_lin_file);
+    while (!fin.eof()) {
+        double kt, P;
+        fin >> kt >> P;
+        if (!fin.eof()) {
+            k.push_back(kt);
+            prod.push_back(kt*kt*kt*P/(2.0*PI*PI));
+        }
+    }
+    fin.close();
+    
+    gsl_spline *Getknl = gsl_spline_alloc(gsl_interp_cspline, k.size());
+    gsl_interp_accel *acc = gsl_interp_accel_alloc();
+    
+    gsl_spline_init(Getknl, prod.data(), k.data(), k.size());
+    
+    k_nl = gsl_spline_eval(Getknl, 1.0, acc);
+    std::cout << "k_nl = " << k_nl << std::endl;
+    
+    gsl_spline_free(Getknl);
+    gsl_interp_accel_free(acc);
+    
+    return k_nl;
 }
