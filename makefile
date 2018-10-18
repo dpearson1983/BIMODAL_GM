@@ -21,4 +21,4 @@ dewiggle: source/dewiggle.cpp
 	$(CXX) $(CXXFLAGS) $(CXXOPTS) -c -o obj/dewiggle.o source/dewiggle.cpp
 	
 clean:
-	rm obj/harppi.o obj/make_spline.o $(HOME)/bin/bimodal
+	rm obj/harppi.o obj/make_spline.o $(HOME)/bin/bimodal_gm

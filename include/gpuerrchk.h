@@ -2,7 +2,7 @@
 #define _GPUERRCHK_H_
 
 #include <cuda.h>
-#include <cublas_v2.h>
+// #include <cublas_v2.h>
 #include <sstream>
 
 #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }

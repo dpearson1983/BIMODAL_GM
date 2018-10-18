@@ -12,11 +12,12 @@
 #include <cuda.h>
 #include <vector_types.h>
 #include <gsl/gsl_spline.h>
+#include "include/harppi.h"
+#include "include/cspline.h"
+#include "include/dewiggle.h"
 #include "include/gpuerrchk.h"
 #include "include/mcmc.h"
-#include "include/harppi.h"
 #include "include/make_spline.h"
-#include "include/dewiggle.h"
 
 double get_k_nl(std::string P_lin_file);
 
