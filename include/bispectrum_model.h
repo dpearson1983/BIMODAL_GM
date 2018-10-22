@@ -143,6 +143,29 @@ __device__ double c_nkaG(double &n, double &k) {
     return (1.0 + ((4.5*d_aG[3])/denom)*__powf(q*d_aG[4], n + 3 + d_aG[8]))/(1.0 + __powf(q*d_aG[4], n + 3.5 + d_aG[8]));
 }
 
+// __device__ double a_nkaF(double &n, double &k) {
+//     return 1.0;
+// }
+// 
+// __device__ double b_nkaF(double &n, double &k) {
+//     return 1.0;
+// }
+// 
+// __device__ double c_nkaF(double &n, double &k) {
+//     return 1.0;
+// }
+// 
+// __device__ double a_nkaG(double &n, double &k) {
+//     return 1.0;
+// }
+// 
+// __device__ double b_nkaG(double &n, double &k) {
+//     return 1.0;
+// }
+// 
+// __device__ double c_nkaG(double &n, double &k) {
+//     return 1.0;
+// }
 
 __device__ double F_2eff(double &k_i, double &k_j, double &mu_ij) {
     double n_i = n_spline_eval(k_i);
@@ -180,7 +203,7 @@ __device__ double get_Legendre(double &mu, int &l) {
     if (l == 0) {
         return 1.0;
     } else {
-        return 5.0*(3.0*mu*mu - 1.0);
+        return 0.5*(3.0*mu*mu - 1.0);
     }
 }
 
@@ -189,6 +212,8 @@ __device__ double get_grid_value(double &mu, double &phi, double4 &k, int l) {
     double mu_1 = mu;
     double mu_2 = -mu_1*z + sqrt(1.0 - mu_1*mu_1)*sqrt(1.0 - z*z)*cos(phi);
     double mu_3 = -(mu_1*k.x + mu_2*k.y)/k.z;
+    
+    double P_L = get_Legendre(mu_1, l);
     
     double sq_ratio = (a_perp*a_perp)/(a_para*a_para) - 1.0;
     double mu1bar = 1.0 + mu_1*mu_1*sq_ratio;
@@ -203,9 +228,9 @@ __device__ double get_grid_value(double &mu, double &phi, double4 &k, int l) {
     mu_2 = (mu_2*a_perp)/(a_para*sqrt(mu2bar));
     mu_3 = (mu_3*a_perp)/(a_para*sqrt(mu3bar));
     
-    double P_1 = pk_spline_eval(k_1);
-    double P_2 = pk_spline_eval(k_2);
-    double P_3 = pk_spline_eval(k_3);
+    double P_1 = pk_spline_eval(k_1)/(a_perp*a_perp*a_para);
+    double P_2 = pk_spline_eval(k_2)/(a_perp*a_perp*a_para);
+    double P_3 = pk_spline_eval(k_3)/(a_perp*a_perp*a_para);
     
     double mu_12 = (k_1*k_1 + k_2*k_2 - k_3*k_3)/(2.0*k_1*k_2);
     double mu_23 = (k_2*k_2 + k_3*k_3 - k_1*k_1)/(2.0*k_2*k_3);
@@ -227,10 +252,7 @@ __device__ double get_grid_value(double &mu, double &phi, double4 &k, int l) {
     double Z2k23 = Z_2eff(k_2, k_3, k_23, mu_2, mu_3, mu_23, mu_23p);
     double Z2k31 = Z_2eff(k_3, k_1, k_31, mu_3, mu_1, mu_31, mu_31p);
     
-    double B = Z1k1*Z1k2*Z2k12*P_1*P_2 + Z1k2*Z1k3*Z2k23*P_2*P_3 + Z1k3*Z1k1*Z2k31*P_3*P_1;
-    B *= 2.0*FoG(k_1, k_2, k_3, mu_1, mu_2, mu_3)*get_Legendre(mu_1, l);
-    
-    return B;
+    return 2.0*(Z1k1*Z1k2*Z2k12*P_1*P_2 + Z1k2*Z1k3*Z2k23*P_2*P_3 + Z1k3*Z1k1*Z2k31*P_3*P_1)*FoG(k_1, k_2, k_3, mu_1, mu_2, mu_3)*P_L;
 }
 
 
@@ -255,7 +277,7 @@ __global__ void calc_model_bispectrum(double4 *ks, double *Bk) {
     if (tid == 0) {
         for (int i = 1; i < 32; ++i)
             integration_grid[0] += integration_grid[blockDim.x*i];
-        Bk[blockIdx.x] = integration_grid[0]/4.0;
+        Bk[blockIdx.x] = (integration_grid[0]/4.0)*sqrt((2.0*ks[blockIdx.x].w + 1.0)/PI);
     }
 }
 
