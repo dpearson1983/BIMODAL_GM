@@ -19,11 +19,12 @@ __constant__ double4 d_n[877];  // 22528 bytes
 __constant__ double4 d_Q3[877]; // 22528 bytes
 __constant__ double d_w[32];    //   256 bytes
 __constant__ double d_x[32];    //   256 bytes
-__constant__ double d_p[7];     //    56 bytes
+__constant__ double d_p[13];    //   104 bytes
 __constant__ double d_aF[9];    //    72 bytes
 __constant__ double d_aG[9];    //    72 bytes
 __constant__ double d_knl;      //     8 bytes
-// Total constant memory usage:    49872 bytes
+__constant__ double d_BkNW[210] //  1680 bytes
+// Total constant memory usage:    51600 bytes
 
 // Parameters for a particular model calculation are stored in d_p and are as follows:
 //      d_p[0] = b1
@@ -41,6 +42,12 @@ __constant__ double d_knl;      //     8 bytes
 #define a_para d_p[4]
 #define a_perp d_p[5]
 #define sigma_v d_p[6]
+#define a1 d_p[7]
+#define a2 d_p[8]
+#define a3 d_p[9]
+#define a4 d_p[10]
+#define a5 d_p[11]
+#define a6 d_p[12]
 
 const double w_i[] = {0.096540088514728, 0.096540088514728, 0.095638720079275, 0.095638720079275,
                      0.093844399080805, 0.093844399080805, 0.091173878695764, 0.091173878695764,
@@ -207,6 +214,14 @@ __device__ double get_Legendre(double &mu, int &l) {
     }
 }
 
+__device__ double get_shape_correction(int &l, double &k_1, double &k_2, double &k_3) {
+    if (l == 0) {
+        return d_BkNW[blockIdx.x]*(a1*k_1 + a2*k_2 + a3*k_3);
+    } else {
+        return d_BkNW[blockIdx.x]*(a4*k_1 + a5*k_2 + a6*k_3);
+    }
+}
+
 __device__ double get_grid_value(double &mu, double &phi, double4 &k, int l) {
     float z = (k.x*k.x + k.y*k.y - k.z*k.z)/(2.0*k.x*k.y);
     double mu_1 = mu;
@@ -252,7 +267,9 @@ __device__ double get_grid_value(double &mu, double &phi, double4 &k, int l) {
     double Z2k23 = Z_2eff(k_2, k_3, k_23, mu_2, mu_3, mu_23, mu_23p);
     double Z2k31 = Z_2eff(k_3, k_1, k_31, mu_3, mu_1, mu_31, mu_31p);
     
-    return 2.0*(Z1k1*Z1k2*Z2k12*P_1*P_2 + Z1k2*Z1k3*Z2k23*P_2*P_3 + Z1k3*Z1k1*Z2k31*P_3*P_1)*FoG(k_1, k_2, k_3, mu_1, mu_2, mu_3)*P_L;
+    double shape_cor = get_shape_correction(k.w, k.x, k.y, k.z);
+    
+    return 2.0*(Z1k1*Z1k2*Z2k12*P_1*P_2 + Z1k2*Z1k3*Z2k23*P_2*P_3 + Z1k3*Z1k1*Z2k31*P_3*P_1)*FoG(k_1, k_2, k_3, mu_1, mu_2, mu_3)*P_L + shape_cor;
 }
 
 
