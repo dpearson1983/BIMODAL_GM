@@ -23,17 +23,7 @@ __constant__ double d_p[13];    //   104 bytes
 __constant__ double d_aF[9];    //    72 bytes
 __constant__ double d_aG[9];    //    72 bytes
 __constant__ double d_knl;      //     8 bytes
-__constant__ double d_BkNW[210] //  1680 bytes
-// Total constant memory usage:    51600 bytes
-
-// Parameters for a particular model calculation are stored in d_p and are as follows:
-//      d_p[0] = b1
-//      d_p[1] = b2
-//      d_p[2] = f
-//      d_p[3] = sigma_8
-//      d_p[4] = alpha_parallel
-//      d_p[5] = alpha_perpendicular
-//      d_p[6] = sigma_v
+// Total constant memory usage:    49920 bytes
 
 #define b1 d_p[0]
 #define b2 d_p[1]
@@ -214,11 +204,11 @@ __device__ double get_Legendre(double &mu, int &l) {
     }
 }
 
-__device__ double get_shape_correction(int &l, double &k_1, double &k_2, double &k_3) {
-    if (l == 0) {
-        return d_BkNW[blockIdx.x]*(a1*k_1 + a2*k_2 + a3*k_3);
+__device__ double get_shape_correction(double4 &k, double &BkNW) {
+    if ((int)k.w == 0) {
+        return BkNW*(a1*k.x + a2*k.y + a3*k.z);
     } else {
-        return d_BkNW[blockIdx.x]*(a4*k_1 + a5*k_2 + a6*k_3);
+        return BkNW*(a4*k.x + a5*k.y + a6*k.z);
     }
 }
 
@@ -267,13 +257,11 @@ __device__ double get_grid_value(double &mu, double &phi, double4 &k, int l) {
     double Z2k23 = Z_2eff(k_2, k_3, k_23, mu_2, mu_3, mu_23, mu_23p);
     double Z2k31 = Z_2eff(k_3, k_1, k_31, mu_3, mu_1, mu_31, mu_31p);
     
-    double shape_cor = get_shape_correction(k.w, k.x, k.y, k.z);
-    
-    return 2.0*(Z1k1*Z1k2*Z2k12*P_1*P_2 + Z1k2*Z1k3*Z2k23*P_2*P_3 + Z1k3*Z1k1*Z2k31*P_3*P_1)*FoG(k_1, k_2, k_3, mu_1, mu_2, mu_3)*P_L + shape_cor;
+    return 2.0*(Z1k1*Z1k2*Z2k12*P_1*P_2 + Z1k2*Z1k3*Z2k23*P_2*P_3 + Z1k3*Z1k1*Z2k31*P_3*P_1)*FoG(k_1, k_2, k_3, mu_1, mu_2, mu_3)*P_L;
 }
 
 
-__global__ void calc_model_bispectrum(double4 *ks, double *Bk) {
+__global__ void calc_model_bispectrum(double4 *ks, double *Bk, double *BkNW) {
     int tid = threadIdx.y + blockDim.x*threadIdx.x; // Block local thread ID
     
     __shared__ double integration_grid[1024];
@@ -295,10 +283,12 @@ __global__ void calc_model_bispectrum(double4 *ks, double *Bk) {
         for (int i = 1; i < 32; ++i)
             integration_grid[0] += integration_grid[blockDim.x*i];
         Bk[blockIdx.x] = (integration_grid[0]/4.0)*sqrt((2.0*ks[blockIdx.x].w + 1.0)/PI);
+        Bk[blockIdx.x] += get_shape_correction(ks[blockIdx.x], BkNW[blockIdx.x]);
     }
 }
 
-void model_calc(std::vector<double> &pars, double4 *d_ks, double *d_Bk, std::vector<double> &Bk) {
+void model_calc(std::vector<double> &pars, double4 *d_ks, double *d_Bk, double *d_BkNW, 
+                std::vector<double> &Bk) {
     // Move current parameters to device constant memory
     std::vector<double> theta(pars.size());
     for (int i = 0; i < pars.size(); ++i)
@@ -314,7 +304,7 @@ void model_calc(std::vector<double> &pars, double4 *d_ks, double *d_Bk, std::vec
     size_t num_data = Bk.size();
     
     // Call the CUDA kernel to launch num_data blocks (i.e. each block calculates one point of the model)
-    calc_model_bispectrum<<<num_data, num_threads>>>(d_ks, d_Bk);
+    calc_model_bispectrum<<<num_data, num_threads>>>(d_ks, d_Bk, d_BkNW);
 
     gpuErrchk(cudaMemcpy(Bk.data(), d_Bk, num_data*sizeof(double), cudaMemcpyDeviceToHost));
 }

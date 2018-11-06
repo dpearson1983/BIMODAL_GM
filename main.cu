@@ -21,6 +21,8 @@
 
 double get_k_nl(std::string P_lin_file);
 
+std::vector<double> get_Bk_NW(std::string file);
+
 int main(int argc, char *argv[]) {
     // Use HARPPI hidden in an object file to parse parameters
     parameters p(argv[1]);
@@ -57,12 +59,18 @@ int main(int argc, char *argv[]) {
     double k_nl = get_k_nl(p.gets("in_pk_lin_file"));
     gpuErrchk(cudaMemcpyToSymbol(d_knl, &k_nl, sizeof(double)));
     
+    std::vector<double> Bk_NW = get_Bk_NW(p.gets("Bk_NW_file"));
+    
     // Declare a pointer for the integration workspace and allocate memory on the GPU
     double *d_Bk;
+    double *d_BkNW;
     double4 *d_ks;
     
     gpuErrchk(cudaMalloc((void **)&d_Bk, p.geti("num_data")*sizeof(double)));
+    gpuErrchk(cudaMalloc((void **)&d_BkNW, p.geti("num_data")*sizeof(double)));
     gpuErrchk(cudaMalloc((void **)&d_ks, p.geti("num_data")*sizeof(double4)));
+    
+    gpuErrchk(cudaMemcpy(d_BkNW, Bk_NW.data(), Bk_NW.size()*sizeof(double), cudaMemcpyHostToDevice));
     
     std::vector<double> start_params;
     std::vector<bool> limit_params;
@@ -78,7 +86,7 @@ int main(int argc, char *argv[]) {
     }
     
     // Initialize bkmcmc object
-    bkmcmc bk_fit(p.gets("data_file"), p.gets("cov_file"), start_params, var_i, d_ks, d_Bk);
+    bkmcmc bk_fit(p.gets("data_file"), p.gets("cov_file"), start_params, var_i, d_ks, d_Bk, d_BkNW);
     
     // Check that the initialization worked
     bk_fit.check_init();
@@ -87,12 +95,13 @@ int main(int argc, char *argv[]) {
     bk_fit.set_param_limits(limit_params, min, max);
     
     // Run the MCMC chain
-    bk_fit.run_chain(p.geti("num_draws"), p.geti("num_burn"), p.gets("reals_file"), d_ks, d_Bk,
+    bk_fit.run_chain(p.geti("num_draws"), p.geti("num_burn"), p.gets("reals_file"), d_ks, d_Bk, d_BkNW,
                      p.getb("new_chain"));
     
     // Free device pointers
     gpuErrchk(cudaFree(d_Bk));
     gpuErrchk(cudaFree(d_ks));
+    gpuErrchk(cudaFree(d_BkNW));
     
     return 0;
 }
@@ -124,4 +133,18 @@ double get_k_nl(std::string P_lin_file) {
     gsl_interp_accel_free(acc);
     
     return k_nl;
+}
+
+std::vector<double> get_Bk_NW(std::string file) {
+    std::vector<double> B_NW;
+    std::ifstream fin(file);
+    while(!fin.eof()) {
+        double l, k1, k2, k3, B;
+        fin >> l >> k1 >> k2 >> k3 >> B;
+        if (!fin.eof()) {
+            B_NW.push_back(B);
+        }
+    }
+    fin.close();
+    return B_NW;
 }
