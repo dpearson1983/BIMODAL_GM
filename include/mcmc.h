@@ -237,14 +237,19 @@ bkmcmc::bkmcmc(std::string data_file, std::string cov_file, std::vector<double> 
     gsl_linalg_LU_decomp(cov, perm, &s);
     gsl_linalg_LU_invert(cov, perm, psi);
     
+    fout.open("invCovarCheck.dat");
     for (int i = 0; i < bkmcmc::num_data; ++i) {
         std::vector<double> row;
         row.reserve(bkmcmc::num_data);
         for (int j = 0; j < bkmcmc::num_data; ++j) {
-            row.push_back((1.0 - double(bkmcmc::num_data + 1.0)/2048.0)*gsl_matrix_get(psi, i, j));
+            row.push_back((1.0 - double(bkmcmc::num_data + 1.0)/(2048.0 - 1.0))*gsl_matrix_get(psi, i, j));
+            fout.width(25);
+            fout << row[j];
         }
+        fout << "\n";
         bkmcmc::Psi.push_back(row);
     }
+    fout.close();
     
     gsl_matrix_free(cov);
     gsl_matrix_free(psi);
@@ -270,6 +275,7 @@ bkmcmc::bkmcmc(std::string data_file, std::string cov_file, std::vector<double> 
     std::cout << "Calculating initial model and chi^2..." << std::endl;
     model_calc(bkmcmc::theta_0, ks, d_Bk, bkmcmc::model);
     bkmcmc::chisq_0 = bkmcmc::calc_chi_squared();
+    std::cout << "chisq_0 = " << bkmcmc::chisq_0 << std::endl;
     
     fout.open("Bk_mod_check.dat", std::ios::out);
     for (int i =0; i < bkmcmc::num_data; ++i) {
@@ -350,7 +356,7 @@ void bkmcmc::run_chain(int num_draws, int num_burn, std::string reals_file, doub
         for (int par = 0; par < bkmcmc::num_pars; ++par) {
             fout << bkmcmc::theta_0[par] << " ";
         }
-        double alpha = pow(bkmcmc::theta_0[3]*bkmcmc::theta_0[4]*bkmcmc::theta_0[4], 1.0/3.0);
+        double alpha = pow(bkmcmc::theta_0[4]*bkmcmc::theta_0[5]*bkmcmc::theta_0[5], 1.0/3.0);
         fout << alpha << " " << bkmcmc::chisq_0 << "\n";
         if (move) {
             std::cout << "\r";

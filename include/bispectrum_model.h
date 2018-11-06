@@ -99,7 +99,7 @@ __device__ double Q3_spline_eval(double &k) {
 
 __device__ double FoG(double &k_1, double &k_2, double &k_3, double &mu_1, double &mu_2, double &mu_3) {
     double kmus = k_1*k_1*mu_1*mu_1 + k_2*k_2*mu_2*mu_2 + k_3*k_3*mu_3*mu_3;
-    double denom = 1.0 + kmus*kmus*sigma_v*sigma_v/2.0;
+    double denom = 1.0 + 0.5*kmus*kmus*sigma_v*sigma_v;
     return 1.0/(denom*denom);
 }
 
@@ -208,7 +208,7 @@ __device__ double get_Legendre(double &mu, int &l) {
 }
 
 __device__ double get_grid_value(double &mu, double &phi, double4 &k, int l) {
-    double z = (k.x*k.x + k.y*k.y - k.z*k.z)/(2.0*k.x*k.y);
+    float z = (k.x*k.x + k.y*k.y - k.z*k.z)/(2.0*k.x*k.y);
     double mu_1 = mu;
     double mu_2 = -mu_1*z + sqrt(1.0 - mu_1*mu_1)*sqrt(1.0 - z*z)*cos(phi);
     double mu_3 = -(mu_1*k.x + mu_2*k.y)/k.z;
@@ -232,9 +232,9 @@ __device__ double get_grid_value(double &mu, double &phi, double4 &k, int l) {
     double P_2 = pk_spline_eval(k_2)/(a_perp*a_perp*a_para);
     double P_3 = pk_spline_eval(k_3)/(a_perp*a_perp*a_para);
     
-    double mu_12 = (k_1*k_1 + k_2*k_2 - k_3*k_3)/(2.0*k_1*k_2);
-    double mu_23 = (k_2*k_2 + k_3*k_3 - k_1*k_1)/(2.0*k_2*k_3);
-    double mu_31 = (k_3*k_3 + k_1*k_1 - k_2*k_2)/(2.0*k_3*k_1);
+    double mu_12 = -(k_1*k_1 + k_2*k_2 - k_3*k_3)/(2.0*k_1*k_2);
+    double mu_23 = -(k_2*k_2 + k_3*k_3 - k_1*k_1)/(2.0*k_2*k_3);
+    double mu_31 = -(k_3*k_3 + k_1*k_1 - k_2*k_2)/(2.0*k_3*k_1);
     
     double k_12 = sqrt(k_1*k_1 + k_2*k_2 + 2.0*k_1*k_2*mu_12);
     double k_23 = sqrt(k_2*k_2 + k_3*k_3 + 2.0*k_2*k_3*mu_23);
