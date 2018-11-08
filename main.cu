@@ -86,7 +86,8 @@ int main(int argc, char *argv[]) {
     }
     
     // Initialize bkmcmc object
-    bkmcmc bk_fit(p.gets("data_file"), p.gets("cov_file"), start_params, var_i, d_ks, d_Bk, d_BkNW);
+    bkmcmc bk_fit(p.gets("data_file"), p.gets("cov_file"), start_params, var_i, d_ks, d_Bk, d_BkNW, 
+                  p.geti("num_write"));
     
     // Check that the initialization worked
     bk_fit.check_init();

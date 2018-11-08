@@ -23,7 +23,7 @@ std::mt19937_64 gen(seeder());
 std::uniform_real_distribution<double> dist(-1.0, 1.0);
 
 class bkmcmc{
-    int num_data, num_pars;
+    int num_data, num_pars, num_write;
     std::vector<double> data; // These should have size of num_data
     std::vector<std::vector<double>> Psi; // num_data vectors of size num_data
     std::vector<double> theta_0, theta_i, param_vars, min, max; // These should all have size of num_pars
@@ -54,7 +54,7 @@ class bkmcmc{
         
         // Initializes most of the data members and gets an initial chisq_0
         bkmcmc(std::string data_file, std::string cov_file, std::vector<double> &pars, 
-               std::vector<double> &vars, double4 *ks, double *Bk, double *Bk_NW); // done
+               std::vector<double> &vars, double4 *ks, double *Bk, double *Bk_NW, int nWrite); // done
         
         // Displays information to the screen to check that the vectors are all the correct size
         void check_init(); // done
@@ -119,7 +119,7 @@ bool bkmcmc::trial(double4 *ks, double *d_Bk, double *d_BkNW, double &L, double 
 
 void bkmcmc::write_theta_screen() {
     std::cout.precision(6);
-    for (int i = 0; i < bkmcmc::num_pars; ++i) {
+    for (int i = 0; i < bkmcmc::num_write; ++i) {
         std::cout.width(15);
         std::cout << bkmcmc::theta_0[i];
     }
@@ -186,9 +186,11 @@ void bkmcmc::tune_vars(double4 *ks, double *d_Bk, double *d_BkNW) {
 }
 
 bkmcmc::bkmcmc(std::string data_file, std::string cov_file, std::vector<double> &pars, 
-               std::vector<double> &vars, double4 *ks, double *d_Bk, double *d_BkNW) {
+               std::vector<double> &vars, double4 *ks, double *d_Bk, double *d_BkNW, int nWrite) {
     std::ifstream fin;
     std::ofstream fout;
+    
+    bkmcmc::num_write = nWrite;
     
     std::cout << "Reading in and storing data file..." << std::endl;
     if (std::ifstream(data_file)) {
