@@ -120,7 +120,7 @@ bool bkmcmc::trial(double4 *ks, double *d_Bk, double *d_BkNW, double &L, double 
 void bkmcmc::write_theta_screen() {
     std::cout.precision(6);
     for (int i = 0; i < bkmcmc::num_write; ++i) {
-        std::cout.width(15);
+        std::cout.width(12);
         std::cout << bkmcmc::theta_0[i];
     }
     std::cout.width(15);
