@@ -131,10 +131,16 @@ void bkmcmc::write_theta_screen() {
 }
 
 void bkmcmc::burn_in(int num_burn, double4 *ks, double *d_Bk, double *d_BkNW) {
+    std::ofstream fout("burnIn.dat");
     std::cout << "Burning the first " << num_burn << " trials to move to higher likelihood..." << std::endl;
     double L, R;
     for (int i = 0; i < num_burn; ++i) {
         bool move = bkmcmc::trial(ks, d_Bk, d_BkNW, L, R);
+        for (int par = 0; par < bkmcmc::num_pars; ++par) {
+            fout << bkmcmc::theta_0[par] << " ";
+        }
+        double alpha = pow(bkmcmc::theta_0[4]*bkmcmc::theta_0[5]*bkmcmc::theta_0[5], 1.0/3.0);
+        fout << alpha << " " << bkmcmc::chisq_0 << "\n";
         if (true) {
             std::cout << "\r";
             std::cout.width(5);
@@ -148,6 +154,7 @@ void bkmcmc::burn_in(int num_burn, double4 *ks, double *d_Bk, double *d_BkNW) {
         }
     }
     std::cout << std::endl;
+    fout.close();
 }
 
 void bkmcmc::tune_vars(double4 *ks, double *d_Bk, double *d_BkNW) {
