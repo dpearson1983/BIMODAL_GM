@@ -134,6 +134,7 @@ double get_k_nl(std::string P_lin_file) {
     gsl_spline_init(Getknl, prod.data(), k.data(), k.size());
     
     k_nl = gsl_spline_eval(Getknl, 1.0, acc);
+    std::cout.precision(15);
     std::cout << "k_nl = " << k_nl << std::endl;
     
     gsl_spline_free(Getknl);
