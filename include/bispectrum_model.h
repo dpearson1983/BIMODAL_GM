@@ -214,7 +214,7 @@ __device__ double get_shape_correction(double4 &k, double &BkNW) {
     }
 }
 
-__device__ double get_grid_value(double &mu, double &phi, double4 &k, int l) {
+__device__ double get_grid_value(double &mu, double &phi, double4 &k, int l, double &BkNW) {
     float z = (k.x*k.x + k.y*k.y - k.z*k.z)/(2.0*k.x*k.y);
     double mu_1 = mu;
     double mu_2 = -mu_1*z + sqrt(1.0 - mu_1*mu_1)*sqrt(1.0 - z*z)*cos(phi);
@@ -259,7 +259,9 @@ __device__ double get_grid_value(double &mu, double &phi, double4 &k, int l) {
     double Z2k23 = Z_2eff(k_2, k_3, k_23, mu_2, mu_3, mu_23, mu_23p);
     double Z2k31 = Z_2eff(k_3, k_1, k_31, mu_3, mu_1, mu_31, mu_31p);
     
-    return 2.0*(Z1k1*Z1k2*Z2k12*P_1*P_2 + Z1k2*Z1k3*Z2k23*P_2*P_3 + Z1k3*Z1k1*Z2k31*P_3*P_1)*FoG(k_1, k_2, k_3, mu_1, mu_2, mu_3)*P_L;
+    double shape_cor = get_shape_correction(k, BkNW);
+    
+    return 2.0*(Z1k1*Z1k2*Z2k12*P_1*P_2 + Z1k2*Z1k3*Z2k23*P_2*P_3 + Z1k3*Z1k1*Z2k31*P_3*P_1)*FoG(k_1, k_2, k_3, mu_1, mu_2, mu_3)*P_L + shape_cor;
 }
 
 
@@ -270,7 +272,7 @@ __global__ void calc_model_bispectrum(double4 *ks, double *Bk, double *BkNW) {
     
     // Calculate the value for this thread
     double phi = PI*d_x[threadIdx.y] + PI;
-    integration_grid[tid] = d_w[threadIdx.x]*d_w[threadIdx.y]*get_grid_value(d_x[threadIdx.x], phi, ks[blockIdx.x], (int)ks[blockIdx.x].w);
+    integration_grid[tid] = d_w[threadIdx.x]*d_w[threadIdx.y]*get_grid_value(d_x[threadIdx.x], phi, ks[blockIdx.x], (int)ks[blockIdx.x].w, BkNW[blockIdx.x]);
     __syncthreads();
     
     // First step of reduction done by 32 threads
@@ -285,7 +287,7 @@ __global__ void calc_model_bispectrum(double4 *ks, double *Bk, double *BkNW) {
         for (int i = 1; i < 32; ++i)
             integration_grid[0] += integration_grid[blockDim.x*i];
         Bk[blockIdx.x] = (integration_grid[0]/4.0)*sqrt((2.0*ks[blockIdx.x].w + 1.0)/PI);
-        Bk[blockIdx.x] += get_shape_correction(ks[blockIdx.x], BkNW[blockIdx.x]);
+//         Bk[blockIdx.x] += get_shape_correction(ks[blockIdx.x], BkNW[blockIdx.x]);
     }
 }
 
