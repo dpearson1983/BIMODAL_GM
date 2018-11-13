@@ -23,6 +23,8 @@ double get_k_nl(std::string P_lin_file);
 
 std::vector<double> get_Bk_NW(std::string file);
 
+void write_spline(std::string file, std::vector<double4> &spline);
+
 int main(int argc, char *argv[]) {
     // Use HARPPI hidden in an object file to parse parameters
     parameters p(argv[1]);
@@ -44,6 +46,10 @@ int main(int argc, char *argv[]) {
     std::cout << "Pk_spline.size() = " << Pk_spline.size() << std::endl;
     std::cout << "nk_spline.size() = " << nk_spline.size() << std::endl;
     std::cout << "Q3_spline.size() = " << Q3_spline.size() << std::endl;    
+    
+    write_spline("Pk_spline.dat", Pk_spline);
+    write_spline("nk_spline.dat", nk_spline);
+    write_spline("Q3_spline.dat", Q3_spline);
     
     // Copy the splines to the allocated GPU memory
     gpuErrchk(cudaMemcpyToSymbol(d_Pk, Pk_spline.data(), 128*sizeof(double4)));
@@ -148,4 +154,13 @@ std::vector<double> get_Bk_NW(std::string file) {
     }
     fin.close();
     return B_NW;
+}
+
+void write_spline(std::string file, std::vector<double4> &spline) {
+    std::ofstream fout(file);
+    fout.precision(15);
+    for (size_t i = 0; i < spline.size(); ++i) {
+        fout << spline[i].x << " " << spline[i].y << " " << spline[i].z << " " << spline[i].w << "\n";
+    }
+    fout.close();
 }
