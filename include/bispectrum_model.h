@@ -106,65 +106,67 @@ __device__ double Z_1(double &mu_i) {
     return b1 + mu_i*mu_i*f;
 }
 
-__device__ double a_nkaF(double &n, double &k) {
-    double q = k/d_knl;
-    double Q3 = Q3_spline_eval(k);
-    double powqa = __powf(q*d_aF[0], n + d_aF[1]);
-    return (1.0 + __powf(sigma_8, d_aF[5])*sqrt(0.7*Q3)*powqa)/(1.0 + powqa);
-}
-
-__device__ double b_nkaF(double &n, double &k) {
-    double q = k/d_knl;
-    return (1.0 + 0.2*d_aF[2]*(n + 3.0)*__powf(q*d_aF[6],n + 3.0 + d_aF[7]))/(1.0 + __powf(q*d_aF[6],n + 3.5 + d_aF[7]));
-}
-
-__device__ double c_nkaF(double &n, double &k) {
-    double q = k/d_knl;
-    double denom = 1.5 + (n + 3.0)*(n + 3.0)*(n + 3.0)*(n + 3.0);
-    return (1.0 + ((4.5*d_aF[3])/denom)*__powf(q*d_aF[4], n + 3 + d_aF[8]))/(1.0 + __powf(q*d_aF[4], n + 3.5 + d_aF[8]));
-}
-
-__device__ double a_nkaG(double &n, double &k) {
-    double q = k/d_knl;
-    double Q3 = Q3_spline_eval(k);
-    double powqa = __powf(q*d_aG[0], n + d_aG[1]);
-    return (1.0 + __powf(sigma_8, d_aG[5])*sqrt(0.7*Q3)*powqa)/(1.0 + powqa);
-}
-
-__device__ double b_nkaG(double &n, double &k) {
-    double q = k/d_knl;
-    return (1.0 + 0.2*d_aG[2]*(n + 3.0)*__powf(q*d_aG[6],n + 3.0 + d_aG[7]))/(1.0 + __powf(q*d_aG[6],n + 3.5 + d_aG[7]));
-}
-
-__device__ double c_nkaG(double &n, double &k) {
-    double q = k/d_knl;
-    double denom = 1.5 + (n + 3.0)*(n + 3.0)*(n + 3.0)*(n + 3.0);
-    return (1.0 + ((4.5*d_aG[3])/denom)*__powf(q*d_aG[4], n + 3 + d_aG[8]))/(1.0 + __powf(q*d_aG[4], n + 3.5 + d_aG[8]));
-}
-
 // __device__ double a_nkaF(double &n, double &k) {
-//     return 1.0;
+//     double q = k/d_knl;
+//     double Q3 = Q3_spline_eval(k);
+//     double powqa = __powf(q*d_aF[0], n + d_aF[1]);
+//     return (1.0 + __powf(sigma_8, d_aF[5])*sqrt(0.7*Q3)*powqa)/(1.0 + powqa);
+// //     return (1.0 + __powf(0.58845254, d_aF[5])*sqrt(0.7*Q3)*powqa)/(1.0 + powqa);
 // }
 // 
 // __device__ double b_nkaF(double &n, double &k) {
-//     return 1.0;
+//     double q = k/d_knl;
+//     return (1.0 + 0.2*d_aF[2]*(n + 3.0)*__powf(q*d_aF[6],n + 3.0 + d_aF[7]))/(1.0 + __powf(q*d_aF[6],n + 3.5 + d_aF[7]));
 // }
 // 
 // __device__ double c_nkaF(double &n, double &k) {
-//     return 1.0;
+//     double q = k/d_knl;
+//     double denom = 1.5 + (n + 3.0)*(n + 3.0)*(n + 3.0)*(n + 3.0);
+//     return (1.0 + ((4.5*d_aF[3])/denom)*__powf(q*d_aF[4], n + 3 + d_aF[8]))/(1.0 + __powf(q*d_aF[4], n + 3.5 + d_aF[8]));
 // }
 // 
 // __device__ double a_nkaG(double &n, double &k) {
-//     return 1.0;
+//     double q = k/d_knl;
+//     double Q3 = Q3_spline_eval(k);
+//     double powqa = __powf(q*d_aG[0], n + d_aG[1]);
+//     return (1.0 + __powf(sigma_8, d_aG[5])*sqrt(0.7*Q3)*powqa)/(1.0 + powqa);
+// //     return (1.0 + __powf(0.58845254, d_aG[5])*sqrt(0.7*Q3)*powqa)/(1.0 + powqa);
 // }
 // 
 // __device__ double b_nkaG(double &n, double &k) {
-//     return 1.0;
+//     double q = k/d_knl;
+//     return (1.0 + 0.2*d_aG[2]*(n + 3.0)*__powf(q*d_aG[6],n + 3.0 + d_aG[7]))/(1.0 + __powf(q*d_aG[6],n + 3.5 + d_aG[7]));
 // }
 // 
 // __device__ double c_nkaG(double &n, double &k) {
-//     return 1.0;
+//     double q = k/d_knl;
+//     double denom = 1.5 + (n + 3.0)*(n + 3.0)*(n + 3.0)*(n + 3.0);
+//     return (1.0 + ((4.5*d_aG[3])/denom)*__powf(q*d_aG[4], n + 3 + d_aG[8]))/(1.0 + __powf(q*d_aG[4], n + 3.5 + d_aG[8]));
 // }
+
+__device__ double a_nkaF(double &n, double &k) {
+    return 1.0;
+}
+
+__device__ double b_nkaF(double &n, double &k) {
+    return 1.0;
+}
+
+__device__ double c_nkaF(double &n, double &k) {
+    return 1.0;
+}
+
+__device__ double a_nkaG(double &n, double &k) {
+    return 1.0;
+}
+
+__device__ double b_nkaG(double &n, double &k) {
+    return 1.0;
+}
+
+__device__ double c_nkaG(double &n, double &k) {
+    return 1.0;
+}
 
 __device__ double F_2eff(double &k_i, double &k_j, double &mu_ij) {
     double n_i = n_spline_eval(k_i);
