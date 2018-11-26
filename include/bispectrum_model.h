@@ -19,11 +19,11 @@ __constant__ double4 d_n[877];  // 22528 bytes
 __constant__ double4 d_Q3[877]; // 22528 bytes
 __constant__ double d_w[32];    //   256 bytes
 __constant__ double d_x[32];    //   256 bytes
-__constant__ double d_p[15];    //   120 bytes
+__constant__ double d_p[21];    //   168 bytes
 __constant__ double d_aF[9];    //    72 bytes
 __constant__ double d_aG[9];    //    72 bytes
 __constant__ double d_knl;      //     8 bytes
-// Total constant memory usage:    49936 bytes
+// Total constant memory usage:    49984 bytes
 
 #define b1 d_p[0]
 #define b2 d_p[1]
@@ -36,10 +36,16 @@ __constant__ double d_knl;      //     8 bytes
 #define a1 d_p[8]
 #define a2 d_p[9]
 #define a3 d_p[10]
-#define c0 d_p[11]
-#define c1 d_p[12]
-#define c2 d_p[13]
-#define c3 d_p[14]
+#define a4 d_p[11]
+#define a5 d_p[12]
+#define a6 d_p[13]
+#define c0 d_p[14]
+#define c1 d_p[15]
+#define c2 d_p[16]
+#define c3 d_p[17]
+#define c4 d_p[18]
+#define c5 d_p[19]
+#define c6 d_p[20]
 
 const double w_i[] = {0.096540088514728, 0.096540088514728, 0.095638720079275, 0.095638720079275,
                      0.093844399080805, 0.093844399080805, 0.091173878695764, 0.091173878695764,
@@ -210,9 +216,9 @@ __device__ double get_Legendre(double &mu, int &l) {
 
 __device__ double get_shape_correction(double4 &k, double &BkNW) {
     if ((int)k.w == 0) {
-        return BkNW*(a0 + a1*k.x + a2*k.y + a3*k.z);
+        return BkNW*(a0 + a1*k.x + a2*k.y + a3*k.z + a4*k.x*k.x + a5*k.y*k.y + a6*k.z*k.z);
     } else {
-        return BkNW*(c0 + c1*k.x + c2*k.y + c3*k.z);
+        return BkNW*(c0 + c1*k.x + c2*k.y + c3*k.z + c4*k.x*k.x + c5*k.y*k.y + c6*k.z*k.z);
     }
 }
 
