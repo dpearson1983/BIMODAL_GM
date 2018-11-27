@@ -21,8 +21,6 @@
 
 double get_k_nl(std::string P_lin_file);
 
-std::vector<double> get_Bk_NW(std::string file);
-
 void write_spline(std::string file, std::vector<double4> &spline);
 
 int main(int argc, char *argv[]) {
@@ -31,6 +29,7 @@ int main(int argc, char *argv[]) {
     
     // Generate cubic splines of the input BAO and NW power spectra
     std::vector<double4> Pk_spline = make_spline(p.gets("input_power"));
+    std::vector<double4> PkNW_spline = make_spline(p.gets("input_nw_power"));
     std::vector<double> k;
     std::vector<double> n;
     get_dewiggled_slope(p.gets("in_pk_lin_file"), k, n);
@@ -48,11 +47,13 @@ int main(int argc, char *argv[]) {
     std::cout << "Q3_spline.size() = " << Q3_spline.size() << std::endl;    
     
     write_spline("Pk_spline.dat", Pk_spline);
+    write_spline("Pk_NW_spline.dat", PkNW_spline);
     write_spline("nk_spline.dat", nk_spline);
     write_spline("Q3_spline.dat", Q3_spline);
     
     // Copy the splines to the allocated GPU memory
     gpuErrchk(cudaMemcpyToSymbol(d_Pk, Pk_spline.data(), 128*sizeof(double4)));
+    gpuErrchk(cudaMemcpyToSymbol(d_PkNW, PkNW_spline.data(), 128*sizeof(double4)));
     gpuErrchk(cudaMemcpyToSymbol(d_n, nk_spline.data(), 877*sizeof(double4)));
     gpuErrchk(cudaMemcpyToSymbol(d_Q3, Q3_spline.data(), 877*sizeof(double4)));
     
@@ -65,18 +66,12 @@ int main(int argc, char *argv[]) {
     double k_nl = get_k_nl(p.gets("in_pk_lin_file"));
     gpuErrchk(cudaMemcpyToSymbol(d_knl, &k_nl, sizeof(double)));
     
-    std::vector<double> Bk_NW = get_Bk_NW(p.gets("Bk_NW_file"));
-    
     // Declare a pointer for the integration workspace and allocate memory on the GPU
     double *d_Bk;
-    double *d_BkNW;
     double4 *d_ks;
     
     gpuErrchk(cudaMalloc((void **)&d_Bk, p.geti("num_data")*sizeof(double)));
-    gpuErrchk(cudaMalloc((void **)&d_BkNW, p.geti("num_data")*sizeof(double)));
     gpuErrchk(cudaMalloc((void **)&d_ks, p.geti("num_data")*sizeof(double4)));
-    
-    gpuErrchk(cudaMemcpy(d_BkNW, Bk_NW.data(), Bk_NW.size()*sizeof(double), cudaMemcpyHostToDevice));
     
     std::vector<double> start_params;
     std::vector<bool> limit_params;
@@ -92,7 +87,7 @@ int main(int argc, char *argv[]) {
     }
     
     // Initialize bkmcmc object
-    bkmcmc bk_fit(p.gets("data_file"), p.gets("cov_file"), start_params, var_i, d_ks, d_Bk, d_BkNW, 
+    bkmcmc bk_fit(p.gets("data_file"), p.gets("cov_file"), start_params, var_i, d_ks, d_Bk, 
                   p.geti("num_write"));
     
     // Check that the initialization worked
@@ -102,13 +97,12 @@ int main(int argc, char *argv[]) {
     bk_fit.set_param_limits(limit_params, min, max);
     
     // Run the MCMC chain
-    bk_fit.run_chain(p.geti("num_draws"), p.geti("num_burn"), p.gets("reals_file"), d_ks, d_Bk, d_BkNW,
+    bk_fit.run_chain(p.geti("num_draws"), p.geti("num_burn"), p.gets("reals_file"), d_ks, d_Bk,
                      p.getb("new_chain"));
     
     // Free device pointers
     gpuErrchk(cudaFree(d_Bk));
     gpuErrchk(cudaFree(d_ks));
-    gpuErrchk(cudaFree(d_BkNW));
     
     return 0;
 }
@@ -141,20 +135,6 @@ double get_k_nl(std::string P_lin_file) {
     gsl_interp_accel_free(acc);
     
     return k_nl;
-}
-
-std::vector<double> get_Bk_NW(std::string file) {
-    std::vector<double> B_NW;
-    std::ifstream fin(file);
-    while(!fin.eof()) {
-        double l, k1, k2, k3, B;
-        fin >> l >> k1 >> k2 >> k3 >> B;
-        if (!fin.eof()) {
-            B_NW.push_back(B);
-        }
-    }
-    fin.close();
-    return B_NW;
 }
 
 void write_spline(std::string file, std::vector<double4> &spline) {

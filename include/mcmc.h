@@ -38,23 +38,23 @@ class bkmcmc{
     double calc_chi_squared(); // done
     
     // Performs one MCMC trial. Returns true if proposal accepted, false otherwise
-    bool trial(double4 *ks, double *Bk, double *Bk_NW, double &L, double &R); // done
+    bool trial(double4 *ks, double *Bk, double &L, double &R); // done
     
     // Writes the current accepted parameters to the screen
     void write_theta_screen(); // done
     
     // Burns the requested number of parameter realizations to move to a higher likelihood region
-    void burn_in(int num_burn, double4 *ks, double *Bk, double *Bk_NW); // done
+    void burn_in(int num_burn, double4 *ks, double *Bk); // done
     
     // Changes the initial guesses for the search range around parameters until acceptance = 0.234
-    void tune_vars(double4 *ks, double *Bk, double *Bk_NW); // done
+    void tune_vars(double4 *ks, double *Bk); // done
     
     public:
         std::vector<double> model; // These should have size num_data
         
         // Initializes most of the data members and gets an initial chisq_0
         bkmcmc(std::string data_file, std::string cov_file, std::vector<double> &pars, 
-               std::vector<double> &vars, double4 *ks, double *Bk, double *Bk_NW, int nWrite); // done
+               std::vector<double> &vars, double4 *ks, double *Bk, int nWrite); // done
         
         // Displays information to the screen to check that the vectors are all the correct size
         void check_init(); // done
@@ -65,7 +65,7 @@ class bkmcmc{
         
         // Runs the MCMC chain for num_draws realizations, writing to reals_file
         void run_chain(int num_draws, int num_burn, std::string reals_file, double4 *ks, double *Bk,
-                       double *Bk_NW, bool new_chain);
+                       bool new_chain);
         
 };
 
@@ -99,9 +99,9 @@ double bkmcmc::calc_chi_squared() {
     return chisq;
 }
 
-bool bkmcmc::trial(double4 *ks, double *d_Bk, double *d_BkNW, double &L, double &R) {
+bool bkmcmc::trial(double4 *ks, double *d_Bk, double &L, double &R) {
     bkmcmc::get_param_real();
-    model_calc(bkmcmc::theta_i, ks, d_Bk, d_BkNW, bkmcmc::model);
+    model_calc(bkmcmc::theta_i, ks, d_Bk, bkmcmc::model);
     bkmcmc::chisq_i = bkmcmc::calc_chi_squared();
     
     L = exp(0.5*(bkmcmc::chisq_0 - bkmcmc::chisq_i));
@@ -130,12 +130,12 @@ void bkmcmc::write_theta_screen() {
     std::cout.flush();
 }
 
-void bkmcmc::burn_in(int num_burn, double4 *ks, double *d_Bk, double *d_BkNW) {
+void bkmcmc::burn_in(int num_burn, double4 *ks, double *d_Bk) {
     std::ofstream fout("burnIn.dat");
     std::cout << "Burning the first " << num_burn << " trials to move to higher likelihood..." << std::endl;
     double L, R;
     for (int i = 0; i < num_burn; ++i) {
-        bool move = bkmcmc::trial(ks, d_Bk, d_BkNW, L, R);
+        bool move = bkmcmc::trial(ks, d_Bk, L, R);
         for (int par = 0; par < bkmcmc::num_pars; ++par) {
             fout << bkmcmc::theta_0[par] << " ";
         }
@@ -157,14 +157,14 @@ void bkmcmc::burn_in(int num_burn, double4 *ks, double *d_Bk, double *d_BkNW) {
     fout.close();
 }
 
-void bkmcmc::tune_vars(double4 *ks, double *d_Bk, double *d_BkNW) {
+void bkmcmc::tune_vars(double4 *ks, double *d_Bk) {
     std::cout << "Tuning acceptance ratio..." << std::endl;
     double acceptance = 0.0;
     while (acceptance <= 0.233 || acceptance >= 0.235) {
         int accept = 0;
         double L, R;
         for (int i = 0; i < 10000; ++i) {
-            bool move = bkmcmc::trial(ks, d_Bk, d_BkNW, L, R);
+            bool move = bkmcmc::trial(ks, d_Bk, L, R);
             if (move) {
                 std::cout << "\r";
                 bkmcmc::write_theta_screen();
@@ -193,7 +193,7 @@ void bkmcmc::tune_vars(double4 *ks, double *d_Bk, double *d_BkNW) {
 }
 
 bkmcmc::bkmcmc(std::string data_file, std::string cov_file, std::vector<double> &pars, 
-               std::vector<double> &vars, double4 *ks, double *d_Bk, double *d_BkNW, int nWrite) {
+               std::vector<double> &vars, double4 *ks, double *d_Bk, int nWrite) {
     std::ifstream fin;
     std::ofstream fout;
     
@@ -283,7 +283,7 @@ bkmcmc::bkmcmc(std::string data_file, std::string cov_file, std::vector<double> 
     }
     
     std::cout << "Calculating initial model and chi^2..." << std::endl;
-    model_calc(bkmcmc::theta_0, ks, d_Bk, d_BkNW, bkmcmc::model);
+    model_calc(bkmcmc::theta_0, ks, d_Bk, bkmcmc::model);
     bkmcmc::chisq_0 = bkmcmc::calc_chi_squared();
     std::cout << "chisq_0 = " << bkmcmc::chisq_0 << std::endl;
     
@@ -320,13 +320,13 @@ void bkmcmc::set_param_limits(std::vector<bool> &lim_pars, std::vector<double> &
     }
 }
 
-void bkmcmc::run_chain(int num_draws, int num_burn, std::string reals_file, double4 *ks, double *d_Bk, 
-                       double *d_BkNW, bool new_chain) {
+void bkmcmc::run_chain(int num_draws, int num_burn, std::string reals_file, double4 *ks, double *d_Bk,
+                       bool new_chain) {
     int num_old_rels = 0;
     if (new_chain) {
         std::cout << "Starting new chain..." << std::endl;
-        bkmcmc::burn_in(num_burn, ks, d_Bk, d_BkNW);
-        bkmcmc::tune_vars(ks, d_Bk, d_BkNW);
+        bkmcmc::burn_in(num_burn, ks, d_Bk);
+        bkmcmc::tune_vars(ks, d_Bk);
     } else {
         std::cout << "Resuming previous chain..." << std::endl;
         std::ifstream fin;
@@ -363,7 +363,7 @@ void bkmcmc::run_chain(int num_draws, int num_burn, std::string reals_file, doub
     fout.open(reals_file.c_str(), std::ios::app);
     fout.precision(15);
     for (int i = 0; i < num_draws; ++i) {
-        bool move = bkmcmc::trial(ks, d_Bk, d_BkNW, L, R);
+        bool move = bkmcmc::trial(ks, d_Bk, L, R);
         for (int par = 0; par < bkmcmc::num_pars; ++par) {
             fout << bkmcmc::theta_0[par] << " ";
         }

@@ -1,5 +1,5 @@
 CXX = cuda-g++
-ARCHS = sm_52
+ARCHS = sm_50
 VXX = nvcc -arch=$(ARCHS) -ccbin=cuda-g++
 CXXFLAGS = -lgsl -lgslcblas -lm -fopenmp
 CXXOPTS = -march=native -mtune=native -O3

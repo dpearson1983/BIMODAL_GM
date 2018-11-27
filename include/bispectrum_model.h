@@ -14,16 +14,17 @@
 #define ONETHIRD 0.333333333333333
 #define PI 3.1415926535897932384626433832795
 
-__constant__ double4 d_Pk[128]; //  4096 bytes
-__constant__ double4 d_n[877];  // 22528 bytes
-__constant__ double4 d_Q3[877]; // 22528 bytes
-__constant__ double d_w[32];    //   256 bytes
-__constant__ double d_x[32];    //   256 bytes
-__constant__ double d_p[21];    //   168 bytes
-__constant__ double d_aF[9];    //    72 bytes
-__constant__ double d_aG[9];    //    72 bytes
-__constant__ double d_knl;      //     8 bytes
-// Total constant memory usage:    49984 bytes
+__constant__ double4 d_Pk[128];   //  4096 bytes
+__constant__ double4 d_PkNW[128]; //  4096 bytes
+__constant__ double4 d_n[877];    // 22528 bytes
+__constant__ double4 d_Q3[877];   // 22528 bytes
+__constant__ double d_w[32];      //   256 bytes
+__constant__ double d_x[32];      //   256 bytes
+__constant__ double d_p[17];      //    96 bytes
+__constant__ double d_aF[9];      //    72 bytes
+__constant__ double d_aG[9];      //    72 bytes
+__constant__ double d_knl;        //     8 bytes
+// Total constant memory usage:      49912 bytes
 
 #define b1 d_p[0]
 #define b2 d_p[1]
@@ -37,15 +38,11 @@ __constant__ double d_knl;      //     8 bytes
 #define a2 d_p[9]
 #define a3 d_p[10]
 #define a4 d_p[11]
-#define a5 d_p[12]
-#define a6 d_p[13]
-#define c0 d_p[14]
-#define c1 d_p[15]
-#define c2 d_p[16]
-#define c3 d_p[17]
-#define c4 d_p[18]
-#define c5 d_p[19]
-#define c6 d_p[20]
+#define c0 d_p[12]
+#define c1 d_p[13]
+#define c2 d_p[14]
+#define c3 d_p[15]
+#define c4 d_p[16]
 
 const double w_i[] = {0.096540088514728, 0.096540088514728, 0.095638720079275, 0.095638720079275,
                      0.093844399080805, 0.093844399080805, 0.091173878695764, 0.091173878695764,
@@ -76,6 +73,17 @@ __device__ double pk_spline_eval(double &k) {
               + (d_Pk[i].z*(d_Pk[i + 1].x - k)*(d_Pk[i + 1].x - k)*(d_Pk[i + 1].x - k))/(6.0*d_Pk[i].w)
               + (d_Pk[i + 1].y/d_Pk[i].w - (d_Pk[i + 1].z*d_Pk[i].w)/6.0)*(k - d_Pk[i].x)
               + (d_Pk[i].y/d_Pk[i].w - (d_Pk[i].w*d_Pk[i].z)/6.0)*(d_Pk[i + 1].x - k);
+              
+    return Pk;
+}
+
+__device__ double pknw_spline_eval(double &k) {
+    int i = (k - d_PkNW[0].x)/(d_PkNW[1].x - d_PkNW[0].x);
+    
+    double Pk = (d_PkNW[i + 1].z*(k - d_PkNW[i].x)*(k - d_PkNW[i].x)*(k - d_PkNW[i].x))/(6.0*d_PkNW[i].w)
+              + (d_PkNW[i].z*(d_PkNW[i + 1].x - k)*(d_PkNW[i + 1].x - k)*(d_PkNW[i + 1].x - k))/(6.0*d_PkNW[i].w)
+              + (d_PkNW[i + 1].y/d_PkNW[i].w - (d_PkNW[i + 1].z*d_PkNW[i].w)/6.0)*(k - d_PkNW[i].x)
+              + (d_PkNW[i].y/d_PkNW[i].w - (d_PkNW[i].w*d_PkNW[i].z)/6.0)*(d_PkNW[i + 1].x - k);
               
     return Pk;
 }
@@ -214,15 +222,15 @@ __device__ double get_Legendre(double &mu, int &l) {
     }
 }
 
-__device__ double get_shape_correction(double4 &k, double &BkNW) {
-    if ((int)k.w == 0) {
-        return BkNW*(a0 + a1*k.x + a2*k.y + a3*k.z + a4*k.x*k.x + a5*k.y*k.y + a6*k.z*k.z);
+__device__ double get_shape_correction(int l, double &k) {
+    if (l == 0) {
+        return pknw_spline_eval(k)*(a0 + a1*k + a2/k + a3/(k*k) + a4/(k*k*k));
     } else {
-        return BkNW*(c0 + c1*k.x + c2*k.y + c3*k.z + c4*k.x*k.x + c5*k.y*k.y + c6*k.z*k.z);
+        return pknw_spline_eval(k)*(c0 + c1*k + c2/k + c3/(k*k) + c4/(k*k*k));
     }
 }
 
-__device__ double get_grid_value(double &mu, double &phi, double4 &k, int l, double &BkNW) {
+__device__ double get_grid_value(double &mu, double &phi, double4 &k, int l) {
     float z = (k.x*k.x + k.y*k.y - k.z*k.z)/(2.0*k.x*k.y);
     double mu_1 = mu;
     double mu_2 = -mu_1*z + sqrt(1.0 - mu_1*mu_1)*sqrt(1.0 - z*z)*cos(phi);
@@ -243,9 +251,9 @@ __device__ double get_grid_value(double &mu, double &phi, double4 &k, int l, dou
     mu_2 = (mu_2*a_perp)/(a_para*sqrt(mu2bar));
     mu_3 = (mu_3*a_perp)/(a_para*sqrt(mu3bar));
     
-    double P_1 = pk_spline_eval(k_1)/(a_perp*a_perp*a_para);
-    double P_2 = pk_spline_eval(k_2)/(a_perp*a_perp*a_para);
-    double P_3 = pk_spline_eval(k_3)/(a_perp*a_perp*a_para);
+    double P_1 = pk_spline_eval(k_1)/(a_perp*a_perp*a_para) + get_shape_correction(l, k.x);
+    double P_2 = pk_spline_eval(k_2)/(a_perp*a_perp*a_para) + get_shape_correction(l, k.y);
+    double P_3 = pk_spline_eval(k_3)/(a_perp*a_perp*a_para) + get_shape_correction(l, k.z);
     
     double mu_12 = -(k_1*k_1 + k_2*k_2 - k_3*k_3)/(2.0*k_1*k_2);
     double mu_23 = -(k_2*k_2 + k_3*k_3 - k_1*k_1)/(2.0*k_2*k_3);
@@ -267,20 +275,18 @@ __device__ double get_grid_value(double &mu, double &phi, double4 &k, int l, dou
     double Z2k23 = Z_2eff(k_2, k_3, k_23, mu_2, mu_3, mu_23, mu_23p);
     double Z2k31 = Z_2eff(k_3, k_1, k_31, mu_3, mu_1, mu_31, mu_31p);
     
-    double shape_cor = get_shape_correction(k, BkNW);
-    
-    return 2.0*(Z1k1*Z1k2*Z2k12*P_1*P_2 + Z1k2*Z1k3*Z2k23*P_2*P_3 + Z1k3*Z1k1*Z2k31*P_3*P_1)*FoG(k_1, k_2, k_3, mu_1, mu_2, mu_3)*P_L + shape_cor;
+    return 2.0*(Z1k1*Z1k2*Z2k12*P_1*P_2 + Z1k2*Z1k3*Z2k23*P_2*P_3 + Z1k3*Z1k1*Z2k31*P_3*P_1)*FoG(k_1, k_2, k_3, mu_1, mu_2, mu_3)*P_L;
 }
 
 
-__global__ void calc_model_bispectrum(double4 *ks, double *Bk, double *BkNW) {
+__global__ void calc_model_bispectrum(double4 *ks, double *Bk) {
     int tid = threadIdx.y + blockDim.x*threadIdx.x; // Block local thread ID
     
     __shared__ double integration_grid[1024];
     
     // Calculate the value for this thread
     double phi = PI*d_x[threadIdx.y] + PI;
-    integration_grid[tid] = d_w[threadIdx.x]*d_w[threadIdx.y]*get_grid_value(d_x[threadIdx.x], phi, ks[blockIdx.x], (int)ks[blockIdx.x].w, BkNW[blockIdx.x]);
+    integration_grid[tid] = d_w[threadIdx.x]*d_w[threadIdx.y]*get_grid_value(d_x[threadIdx.x], phi, ks[blockIdx.x], (int)ks[blockIdx.x].w);
     __syncthreads();
     
     // First step of reduction done by 32 threads
@@ -295,12 +301,10 @@ __global__ void calc_model_bispectrum(double4 *ks, double *Bk, double *BkNW) {
         for (int i = 1; i < 32; ++i)
             integration_grid[0] += integration_grid[blockDim.x*i];
         Bk[blockIdx.x] = (integration_grid[0]/4.0)*sqrt((2.0*ks[blockIdx.x].w + 1.0)/PI);
-//         Bk[blockIdx.x] += get_shape_correction(ks[blockIdx.x], BkNW[blockIdx.x]);
     }
 }
 
-void model_calc(std::vector<double> &pars, double4 *d_ks, double *d_Bk, double *d_BkNW, 
-                std::vector<double> &Bk) {
+void model_calc(std::vector<double> &pars, double4 *d_ks, double *d_Bk, std::vector<double> &Bk) {
     // Move current parameters to device constant memory
     std::vector<double> theta(pars.size());
     for (int i = 0; i < pars.size(); ++i)
@@ -316,7 +320,7 @@ void model_calc(std::vector<double> &pars, double4 *d_ks, double *d_Bk, double *
     size_t num_data = Bk.size();
     
     // Call the CUDA kernel to launch num_data blocks (i.e. each block calculates one point of the model)
-    calc_model_bispectrum<<<num_data, num_threads>>>(d_ks, d_Bk, d_BkNW);
+    calc_model_bispectrum<<<num_data, num_threads>>>(d_ks, d_Bk);
 
     gpuErrchk(cudaMemcpy(Bk.data(), d_Bk, num_data*sizeof(double), cudaMemcpyDeviceToHost));
 }
