@@ -20,7 +20,8 @@
 
 std::random_device seeder;
 std::mt19937_64 gen(seeder());
-std::uniform_real_distribution<double> dist(-1.0, 1.0);
+std::uniform_real_distribution<double> dist(0.0, 1.0);
+std::normal_distribution<double> gauss(0.0, 1.0);
 
 class bkmcmc{
     int num_data, num_pars, num_write;
@@ -74,15 +75,15 @@ void bkmcmc::get_param_real() {
         if (bkmcmc::limit_pars[i]) {
             if (bkmcmc::theta_0[i] + bkmcmc::param_vars[i] > bkmcmc::max[i]) {
                 double center = bkmcmc::max[i] - bkmcmc::param_vars[i];
-                bkmcmc::theta_i[i] = center + dist(gen)*bkmcmc::param_vars[i];
+                bkmcmc::theta_i[i] = center + gauss(gen)*bkmcmc::param_vars[i];
             } else if (bkmcmc::theta_0[i] - bkmcmc::param_vars[i] < bkmcmc::min[i]) {
                 double center = bkmcmc::min[i] + bkmcmc::param_vars[i];
-                bkmcmc::theta_i[i] = center + dist(gen)*bkmcmc::param_vars[i];
+                bkmcmc::theta_i[i] = center + gauss(gen)*bkmcmc::param_vars[i];
             } else {
-                bkmcmc::theta_i[i] = bkmcmc::theta_0[i] + dist(gen)*bkmcmc::param_vars[i];
+                bkmcmc::theta_i[i] = bkmcmc::theta_0[i] + gauss(gen)*bkmcmc::param_vars[i];
             }
         } else {
-            bkmcmc::theta_i[i] = bkmcmc::theta_0[i] + dist(gen)*bkmcmc::param_vars[i];
+            bkmcmc::theta_i[i] = bkmcmc::theta_0[i] + gauss(gen)*bkmcmc::param_vars[i];
         }
     }
 }
@@ -105,7 +106,7 @@ bool bkmcmc::trial(double4 *ks, double *d_Bk, double &L, double &R) {
     bkmcmc::chisq_i = bkmcmc::calc_chi_squared();
     
     L = exp(0.5*(bkmcmc::chisq_0 - bkmcmc::chisq_i));
-    R = (dist(gen) + 1.0)/2.0;
+    R = dist(gen);
     
     if (L > R) {
         for (int i = 0; i < bkmcmc::num_pars; ++i)
@@ -341,18 +342,18 @@ void bkmcmc::run_chain(int num_draws, int num_burn, std::string reals_file, doub
         while (!fin.eof()) {
             double alpha;
             num_old_rels++;
-            std::cout << "\r";
+//             std::cout << "\r";
             for (int i = 0; i < bkmcmc::num_pars; ++i) {
                 fin >> bkmcmc::theta_0[i];
-                std::cout.width(10);
-                std::cout << bkmcmc::theta_0[i];
+//                 std::cout.width(10);
+//                 std::cout << bkmcmc::theta_0[i];
             }
             fin >> alpha;
             fin >> bkmcmc::chisq_0;
-            std::cout.width(10);
-            std::cout << alpha;
-            std::cout.width(10);
-            std::cout << bkmcmc::chisq_0;
+//             std::cout.width(10);
+//             std::cout << alpha;
+//             std::cout.width(10);
+//             std::cout << bkmcmc::chisq_0;
         }
         fin.close();
         num_old_rels--;
